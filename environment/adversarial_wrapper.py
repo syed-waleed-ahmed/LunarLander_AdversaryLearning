@@ -23,22 +23,17 @@ class AdversarialLanderWrapper(gym.Wrapper):
         self.wind_action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
 
         # --- OBSERVATION SPACE UPDATE ---
-        # Base (8) + Budget (1) + Optional Wind (2)
-        base_shape = env.observation_space.shape[0]
+        env_low = self.env.observation_space.low.astype(np.float32)
+        env_high = self.env.observation_space.high.astype(np.float32)
+
         extra_dims = 1 + (2 if visible_wind else 0) # +1 for Budget
         
-        low = np.concatenate([env.observation_space.low, [0.0] * extra_dims])
-        high = np.concatenate([env.observation_space.high, [1.0] * extra_dims]) # Budget is normalized 0-1
+        low = np.concatenate([env_low, [0.0] * extra_dims]).astype(np.float32)
+        high = np.concatenate([env_high, [1.0] * extra_dims]).astype(np.float32) # Budget is normalized 0-1
         
-        # Note: If visible_wind is False, we still add the Budget!
-        # If visible_wind is True, we add Budget AND Wind.
-        
-        # We must adjust the bounds for Wind if it is included
         if visible_wind:
-            # Fix highs/lows for wind part specifically (index 9 and 10)
-            # Budget is index 8 (0.0 to 1.0)
-            high[-2:] = max_wind_force
-            low[-2:] = -max_wind_force
+            high[-2:] = float(max_wind_force) 
+            low[-2:] = float(-max_wind_force)
 
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
 
