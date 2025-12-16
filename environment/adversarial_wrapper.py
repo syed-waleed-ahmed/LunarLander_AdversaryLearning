@@ -75,54 +75,67 @@ class AdversarialLanderWrapper(gym.Wrapper):
 
     def step(self, action):
         lander_action = None
-        wind_raw = np.array([0.0, 0.0])
+        wind_raw = np.array([0.0, 0.0], dtype=np.float32) # Default safe value
 
+        # 1. RESOLVE ACTIONS
         if self.mode == "protagonist":
             lander_action = action
             if self.opponent_model and self.current_budget > 0:
-                wind_raw, _ = self.opponent_model.predict(self.last_obs, deterministic=True)
+                # Predict returns: (action, state)
+                prediction, _ = self.opponent_model.predict(self.last_obs, deterministic=True)
+                wind_raw = prediction
                 
         elif self.mode == "adversary":
-            wind_raw = np.array(action, dtype=np.float32)
+            wind_raw = action
             if self.opponent_model:
                 lander_action, _ = self.opponent_model.predict(self.last_obs, deterministic=True)
             else:
                 lander_action = 0 
 
-        # Calculate Wind & Budget
+        # --- SAFETY BLOCK: FORCE SHAPE (2,) ---
+        # This fixes the "IndexError: invalid index to scalar variable"
+        # We ensure wind_raw is a flat array, then we verify it has 2 elements.
+        wind_raw = np.array(wind_raw, dtype=np.float32).flatten()
+        
+        # If the network output a single number or scalar, pad it with 0
+        if wind_raw.size < 2:
+            wind_raw = np.resize(wind_raw, (2,)) 
+            wind_raw[1] = 0.0 # Ensure the second value is valid (usually Y-wind)
+        
+        # Clip to ensure we only take the first 2 numbers if it somehow gave us too many
+        wind_raw = wind_raw[:2]
+        # -------------------------------------
+
+        # 2. CALCULATE WIND & BUDGET
         wind_vector = wind_raw * self.max_wind_force
         
-        # --- NON-LINEAR COST ---
-        # Small puffs are cheap. Big blasts are expensive.
-        # This encourages "efficiency" rather than just dumping.
         force_magnitude = np.linalg.norm(wind_vector)
         cost = (force_magnitude * 0.05) + (force_magnitude**2 * 0.005)
         
         self.current_budget -= cost
         if self.current_budget <= 0:
             self.current_budget = 0.0
-            wind_vector = np.zeros(2)
+            wind_vector = np.zeros(2, dtype=np.float32) # Reset to pure zero if broke
 
         self.current_wind = wind_vector
 
-        # Apply Physics
+        # 3. APPLY PHYSICS
         try:
             lander = self.env.unwrapped.lander
             if lander:
+                # Now safe because we guaranteed wind_vector is size 2
                 lander.ApplyForceToCenter((float(wind_vector[0]), float(wind_vector[1])), True)
         except AttributeError:
             pass
 
-        # Step
+        # 4. STEP ENVIRONMENT
         next_obs_raw, reward, terminated, truncated, info = self.env.step(lander_action)
         
-        # Get Enhanced Obs
         next_obs = self._get_obs(next_obs_raw)
         self.last_obs = next_obs
         
         if self.mode == "adversary":
             reward = -reward 
-            # Add penalty for using fuel (incentivize saving)
             reward -= (cost * 0.5) 
 
         info["budget"] = self.current_budget
