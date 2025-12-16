@@ -72,24 +72,28 @@ def main():
         # --- PHASE A: TRAIN PROTAGONIST ---
         print(f"> Training Protagonist (vs Fixed Adversary)...")
         
-        # 1. Update Wrapper Mode on all cores
+        # 1. Save Adversary to a temp file
+        adversary.save("temp_adversary_for_workers")
+        
+        # 2. Tell workers to load this file
         env.env_method("set_mode", "protagonist")
+        env.env_method("set_opponent", "temp_adversary_for_workers.zip") # Pass STRING, not OBJECT
         
-        # 2. Update Opponent on all cores
-        # This sends the 'adversary' model object to all 30 CPU processes. 
-        # It takes a second to copy, but it works.
-        env.env_method("set_opponent", adversary)
-        
-        # 3. Train (Much faster now)
+        # 3. Train
         protagonist.learn(total_timesteps=STEPS_PER_ROUND, reset_num_timesteps=False, tb_log_name="PPO_Protagonist")
         protagonist.save(f"{MODELS_DIR}/protagonist_round_{round_idx}")
 
         # --- PHASE B: TRAIN ADVERSARY ---
         print(f"> Training Adversary (vs Fixed Protagonist)...")
         
-        env.env_method("set_mode", "adversary")
-        env.env_method("set_opponent", protagonist)
+        # 1. Save Protagonist to a temp file
+        protagonist.save("temp_protagonist_for_workers")
         
+        # 2. Tell workers to load this file
+        env.env_method("set_mode", "adversary")
+        env.env_method("set_opponent", "temp_protagonist_for_workers.zip") # Pass STRING, not OBJECT
+        
+        # 3. Train
         adversary.learn(total_timesteps=STEPS_PER_ROUND, reset_num_timesteps=False, tb_log_name="PPO_Adversary")
         adversary.save(f"{MODELS_DIR}/adversary_round_{round_idx}")
 

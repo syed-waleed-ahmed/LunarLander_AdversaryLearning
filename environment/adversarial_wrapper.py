@@ -1,6 +1,7 @@
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
+from stable_baselines3 import PPO
 
 class AdversarialLanderWrapper(gym.Wrapper):
     def __init__(self, env, max_wind_force=5.0, max_budget=100.0, visible_wind=False):
@@ -42,8 +43,13 @@ class AdversarialLanderWrapper(gym.Wrapper):
         self.mode = mode
         self.action_space = self.lander_action_space if mode == "protagonist" else self.wind_action_space
 
-    def set_opponent(self, model):
-        self.opponent_model = model
+    def set_opponent(self, model_or_path):
+        if isinstance(model_or_path, str):
+            # Multi CPU
+            self.opponent_model = PPO.load(model_or_path, device="cpu")
+        else:
+            # Single core
+            self.opponent_model = model_or_path
 
     def _get_obs(self, obs):
         """Constructs the observation vector: [State, Budget, (Wind)]"""
