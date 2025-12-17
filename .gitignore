@@ -1,6 +1,5 @@
-# =========================================
 # OS / Editor junk
-# =========================================
+
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -10,9 +9,7 @@ desktop.ini
 *.swp
 *.swo
 
-# =========================================
 # Python junk
-# =========================================
 __pycache__/
 *.py[cod]
 *.pyd
@@ -34,9 +31,8 @@ environment/venv/
 # Jupyter
 .ipynb_checkpoints/
 
-# =========================================
+
 # RL / Experiment artifacts (BIG)
-# =========================================
 # Stable-Baselines3 / Monitor / Tensorboard logs
 logs/
 logs_parallel/
@@ -59,19 +55,5 @@ videos/
 **/*.mp4
 **/*.avi
 
-# =========================================
-# Data outputs (keep code, ignore generated)
-# =========================================
-analysis/outputs/
-*.png
-*.pdf
-*.csv
-
-# If you want to KEEP your curated CSVs for the paper/poster,
-# comment out the line above "*.csv" and instead ignore only:
-# analysis/outputs/*.csv
-
-# =========================================
 # Misc
-# =========================================
 *.log
